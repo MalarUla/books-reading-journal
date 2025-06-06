@@ -10,10 +10,36 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         rowFormatter: function(row) {
             const data = row.getData();
-            if (data.status === "Completed") {
-                row.getElement().style.backgroundColor = "#f0f0f0";
-                row.getElement().style.color = "#999";
-                row.getElement().style.fontStyle = "italic";
+            const el = row.getElement();
+
+            el.classList.remove(
+                "status-reading",
+                "status-completed",
+                "status-yet-to-start",
+                "status-paused",
+                "status-waiting",
+                "status-not-interested"
+            );
+
+            switch (data.status) {
+                case "Reading":
+                    el.classList.add("status-reading");
+                    break;
+                case "Completed":
+                    el.classList.add("status-completed");
+                    break;
+                case "Yet to Start":
+                    el.classList.add("status-yet-to-start");
+                    break;
+                case "Paused":
+                    el.classList.add("status-paused");
+                    break;
+                case "Waiting":
+                    el.classList.add("status-waiting");
+                    break;
+                case "Not Interested":
+                    el.classList.add("status-not-interested");
+                    break;
             }
         },
         columns: [
@@ -21,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 formatter: (cell) => {
                     const rowData = cell.getRow().getData();
                     const checked = cell.getRow().isSelected() ? "checked" : "";
-                    const disabled = rowData.status === "Completed" ? "disabled" : "";
+                    const disabled = rowData.status === "Completed" && !changedRowsMap.has(rowData.id) ? "disabled" : "";
                     return `<input type="checkbox" ${checked} ${disabled} style="pointer-events: none;">`;
                 },
                 titleFormatter: () => '<input type="checkbox" disabled>',
@@ -35,11 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             },
-            { title: "Series Name", field: "seriesName", editor: "input", editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Book Name", field: "bookName", editor: "input", editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Author", field: "author", editor: "input", editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Genre", field: "genre", editor: "input", editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Sub-Genre", field: "subGenre", editor: "input", editable: cell => cell.getRow().getData().status !== "Completed" },
+            { title: "Series Name", field: "seriesName", editor: "input", editable: isEditable },
+            { title: "Book Name", field: "bookName", editor: "input", editable: isEditable },
+            { title: "Author", field: "author", editor: "input", editable: isEditable },
+            { title: "Genre", field: "genre", editor: "input", editable: isEditable },
+            { title: "Sub-Genre", field: "subGenre", editor: "input", editable: isEditable },
             {
                 title: "Reading Status",
                 field: "status",
@@ -49,13 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     autocomplete: false,
                     clearable: false
                 },
-                editable: cell => cell.getRow().getData().status !== "Completed"
+                editable: isEditable
             },
-            { title: "Started Date", field: "startedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Completed Date", field: "completedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Paused Date", field: "pausedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Resumed Date", field: "resumedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: cell => cell.getRow().getData().status !== "Completed" },
-            { title: "Stopped Date", field: "stoppedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: cell => cell.getRow().getData().status !== "Completed" },
+            { title: "Started Date", field: "startedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: isEditable },
+            { title: "Completed Date", field: "completedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: isEditable },
+            { title: "Paused Date", field: "pausedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: isEditable },
+            { title: "Resumed Date", field: "resumedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: isEditable },
+            { title: "Stopped Date", field: "stoppedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: isEditable },
             { title: "Entry Date", field: "entryDate", formatter: formatFirestoreTimestamp },
         ],
         height: "500px",
@@ -85,6 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newStatus === "Completed") {
                     if (!data.startedDate) data.startedDate = todayStr;
                     if (!data.completedDate) data.completedDate = todayStr;
+                    
+                    // 🔽 TEMPORARY FLAG TO ALLOW EDITING BEFORE SAVE
+                    cell.getRow().update({ _transitionalCompleted: true });
+
                 }
 
                 if (newStatus === "Paused") {
@@ -169,6 +199,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return clone;
     }
 
+    function isEditable(cell) {
+        const rowData = cell.getRow().getData();
+        return rowData.status !== "Completed" || rowData._transitionalCompleted === true;
+    }
+
     function dateEditor(cell, onRendered, success, cancel) {
         const value = cell.getValue();
         const input = document.createElement("input");
@@ -235,8 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let changedRows = new Set();
     let originalDataMap = new Map();
     let changedRowsMap = new Map();
-    // Disable Save Changes initially
-    //saveBtn.disabled = true;
 
     // Load from Firestore
     async function loadBooks() {
@@ -258,8 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "Reading": 1,
             "Paused": 2,
             "Yet to Start": 3,
-            "Completed": 4,
-            "Waiting": 5,
+            "Waiting": 4,
+            "Completed": 5,
             "Not Interested": 6
         };
 
@@ -280,6 +313,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    table.on("cellEditing", function (cell) {
+        const rowData = cell.getRow().getData();
+
+        if (rowData.status === "Completed" && !rowData._transitionalCompleted) {
+            // Prevent edit
+            return false;
+        }
+    });
+
 
     // Enable save button on edit and check the row's checkbox
     table.on("cellEdited", function (cell) {
@@ -297,10 +339,48 @@ document.addEventListener('DOMContentLoaded', () => {
         // === Highlight Required Dates Based on Status ===
         if (field === "status") {
             highlightRequiredDateCells(row);
+            
+            // Allow editing until Save
+            row.getElement().classList.remove("row-disabled");
+            row.getCells().forEach(cell => {
+                cell.getElement().classList.remove("non-editable");
+            });
         }
 
+
+        // === Validate Date Relationships ===
+        validateDateDependencies(row);
+        
         saveBtn.disabled = false;
     });
+
+    function validateDateDependencies(row) {
+        const data = row.getData();
+        let validationError = false;
+
+        const started = data.startedDate ? new Date(data.startedDate) : null;
+        const completed = data.completedDate ? new Date(data.completedDate) : null;
+        const paused = data.pausedDate ? new Date(data.pausedDate) : null;
+        const resumed = data.resumedDate ? new Date(data.resumedDate) : null;
+
+        if (completed && started && completed < started) {
+            showToast("❌ Completed date cannot be before Started date.");
+            row.update({ completedDate: "" });
+            validationError = true;
+        }
+        if (paused && started && paused < started) {
+            showToast("❌ Paused date cannot be before Started date.");
+            row.update({ pausedDate: "" });
+            validationError = true;
+        }
+        if (resumed && paused && resumed < paused) {
+            showToast("❌ Resumed date cannot be before Paused date.");
+            row.update({ resumedDate: "" });
+            validationError = true;
+        }
+
+        return !validationError;
+    }
 
     function highlightRequiredDateCells(row) {
         const rowData = row.getData();
@@ -337,6 +417,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
+
+            // ✅ Add transitional flag ONLY for Completed
+            if (status === "Completed") {
+                updateData._transitionalCompleted = true;
+            }
 
             if (Object.keys(updateData).length > 0) {
                 row.update(updateData); // triggers redraw and updates internal state
@@ -410,24 +495,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const booksRef = firebase.firestore().collection("books"); // adjust if your collection is named differently
 
             for (const id in updates) {
+                const cleanData = { ...updates[id] };
+                delete cleanData._transitionalCompleted; // remove before saving
+
                 const docRef = booksRef.doc(id);
                 batch.set(docRef, updates[id], { merge: true });
             }
 
             await batch.commit();
 
-            // Post-save logic: Grey out rows with completed status and date
             Object.entries(updates).forEach(([id, rowData]) => {
                 const row = table.getRow(id);
-                if (
-                    rowData.status === "Completed" &&
-                    rowData.completedDate &&
-                    String(rowData.completedDate).trim() !== ""
-                ) {
-                    row.getElement().classList.add("completed-row");
-                    row.getCells().forEach(cell => {
-                        cell.getElement().classList.add("non-editable");
-                    });
+                if (row) {
+                    // Clean up flag
+                    row.update({ _transitionalCompleted: false });
+
+                    if (rowData.status === "Completed" && rowData.completedDate && String(rowData.completedDate).trim() !== "") {
+                        row.getElement().classList.add("completed-row");
+                        row.getCells().forEach(cell => {
+                            cell.getElement().classList.add("non-editable");
+                        });
+                    }
                 }
             });
 
@@ -442,8 +530,28 @@ document.addEventListener('DOMContentLoaded', () => {
             saveStatus.innerText = "❌ Save failed!";
         } finally {
             saveBtn.disabled = true;
+            updateRowEditability();
         }
     });
+
+    function updateRowEditability() {
+        table.getRows().forEach((row) => {
+            const data = row.getData();
+            const element = row.getElement();
+
+            if (data.status === "Completed" && !changedRows.has(data.id)) {
+                element.classList.add("row-disabled");
+                row.getCells().forEach(cell => {
+                    cell.getElement().classList.add("non-editable");
+                });
+            } else {
+                element.classList.remove("row-disabled");
+                row.getCells().forEach(cell => {
+                    cell.getElement().classList.remove("non-editable");
+                });
+            }
+        });
+    }
 
     // Manage dynamic form behavior
     const statusSelect = document.getElementById("status");
@@ -451,12 +559,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const completedDateInput = document.getElementById("completedDate");
     const startDateContainer = document.getElementById("startDateContainer");
     const completedDateContainer = document.getElementById("completedDateContainer");
+    const dateFields = document.getElementById("dateFields");
     const today = new Date().toLocaleDateString("en-CA");
 
     function updateDateFields() {
         const status = statusSelect.value;
+
         startDateContainer.classList.add("hidden");
         completedDateContainer.classList.add("hidden");
+        dateFields.classList.add("hidden");
+
         startedDateInput.value = "";
         completedDateInput.value = "";
         startedDateInput.removeAttribute("required");
@@ -464,12 +576,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (status === "Reading") {
             startDateContainer.classList.remove("hidden");
+            dateFields.classList.remove("hidden");
             startedDateInput.value = today;
             startedDateInput.max = today;
             startedDateInput.required = true;
         } else if (status === "Completed") {
             startDateContainer.classList.remove("hidden");
             completedDateContainer.classList.remove("hidden");
+            dateFields.classList.remove("hidden");
             startedDateInput.value = today;
             completedDateInput.value = today;
             startedDateInput.max = today;

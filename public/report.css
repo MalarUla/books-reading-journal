@@ -1,11 +1,12 @@
 /* report.css */
 
 #reading-stats-container {
-  padding: 20px;
+  padding: 60px 20px 20px 20px; /* top, right, bottom, left */
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
+
 
 .tabs {
   display: flex;
@@ -237,3 +238,18 @@ canvas {
   height: 400px;
   max-height: 400px;
 }
+
+#back-to-table-btn {
+  position: fixed;
+  top: 10px;
+  left: 20px; /* or right: 20px if you prefer */
+  z-index: 1000;
+  background-color: white;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
+
+

@@ -1,13 +1,20 @@
 /* General container styling */
 .container {
-  position: relative;
-  max-width: 95%;
-  margin: 2rem auto;
-  padding: 2rem;
+  max-width: 1200px;    /* limit max width for large screens */
+  width: 95%;           /* responsive width */
+  margin: 2rem auto;    /* vertical spacing + center horizontally */
+  padding: 2rem;        /* enough padding inside */
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  position: relative;
+  box-sizing: border-box;  /* ensure padding included in width */
 }
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 
 /* Search bar layout */
 .search-controls {
@@ -25,6 +32,7 @@
   border: 1px solid #ccc;
   font-size: 0.95rem;
   min-width: 150px;
+  max-width: 100%;
 }
 
 .search-controls button {
@@ -103,6 +111,7 @@
   border: 1px solid #ccc;
   font-size: 0.95rem;
   min-width: 180px;
+  max-width: 100%;
 }
 
 .book-form button {
@@ -186,3 +195,95 @@
     pointer-events: none;
     opacity: 0.6;
 }
+
+.row-disabled {
+  background-color: #e0e0e0 !important;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.row-disabled .tabulator-cell {
+  pointer-events: none;
+}
+
+
+.logout-btn {
+  position: fixed;
+  top: 10px;
+  right: 20px;
+  z-index: 1100;
+  background-color: #ff4d4d;
+  color: #fff;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+
+.logout-btn:hover {
+  background-color: #e60000;
+}
+
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;   /* prevent horizontal scroll */
+  overflow-y: auto;
+  font-family: sans-serif;
+  box-sizing: border-box;
+}
+
+
+#landing-page {
+  padding-top: 70px; /* space so header & content don't hide under logout */
+}
+
+#landing-page > h1 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 2.5rem;
+  text-align: center;
+  font-weight: 600;
+  color: #222;
+  position: relative; /* no z-index needed unless overlapped */
+}
+
+/* General row styling (non-intrusive visual only) */
+.tabulator-row.status-reading {
+  box-shadow: inset 6px 0 0 0 #4caf50;
+  background-color: #e8f5e9;
+}
+
+.tabulator-row.status-completed {
+  background-color: #f0f0f0;
+  color: #999;
+  font-style: italic;
+}
+
+.tabulator-row.status-yet-to-start {
+  background-color: #ffffff;
+}
+
+.tabulator-row.status-paused {
+  background-color: #fff8e1;
+  box-shadow: inset 6px 0 0 0 #ffb300;
+}
+
+.tabulator-row.status-waiting {
+  background-color: #e3f2fd;
+  box-shadow: inset 6px 0 0 0 #2196f3;
+}
+
+.tabulator-row.status-not-interested {
+  background-color: #fce4ec;
+  box-shadow: inset 6px 0 0 0 #e91e63;
+}
+
+
+
+
