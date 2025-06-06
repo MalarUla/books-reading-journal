@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Books Reading Journal</title>
+
+    <!-- Tabulator CSS -->
+  <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <!-- Tabulator JS -->
+  <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="login.css"/>
+  <link rel="stylesheet" href="report.css"/> <!-- Report Styles -->
+
+  <!-- Tabulator for later use -->
+  <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
+
+  <!-- Firebase SDK (compat version) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyC5_ESsj_Y7o2a7O1X22MZ0f8xTRqqIcf8",
+      authDomain: "books-reading-journal.firebaseapp.com",
+      projectId: "books-reading-journal",
+      storageBucket: "books-reading-journal.appspot.com",
+      messagingSenderId: "570876208462",
+      appId: "1:570876208462:web:ef105c13d1ef434e97aa1f"
+    };
+
+    try {
+      firebase.initializeApp(firebaseConfig);
+      firebase.analytics();
+      window.auth = firebase.auth();
+      window.db = firebase.firestore();
+    } catch (error) {
+      console.error("Firebase initialization error:", error);
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="login.js"></script>
+  <script defer src="report.js"></script> <!-- Report Logic -->
+</head>
+<body>
+  <div id="login-container" class="container">
+    <h1>Books Reading Journal</h1>
+    <button id="google-login" class="google-btn">Sign in with Google</button>
+  </div>
+
+  <div id="landing-page" class="container hidden">
+    <button id="logout-btn" class="logout-btn top-right">⏻ Logout</button>
+    <h1>Welcome to Books Reading Journal</h1>
+
+      <!-- New Book Entry Form -->
+    <form id="newBookForm" class="book-form">
+      <h2>Add New Book(s)</h2>
+
+      <div class="form-row">
+        <input type="text" id="seriesName" placeholder="Series Name" required />
+        <input type="text" id="author" placeholder="Author" required />
+        <input type="text" id="genre" placeholder="Genre" />
+        <input type="text" id="subGenre" placeholder="Sub-Genre" />
+        <select id="status" required>
+          <option value="">Select Status</option>
+          <option>Reading</option>
+          <option>Completed</option>
+          <option selected>Yet to Start</option>
+          <option>Paused</option>
+          <option>Waiting</option>
+          <option>Not Interested</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>Number of Books:
+          <button type="button" id="decreaseCount">-</button>
+          <input type="number" id="bookCount" value="1" min="1" readonly style="width: 10px; text-align: center; padding: 2px;">
+          <button type="button" id="increaseCount">+</button>
+        </label>
+      </div>
+
+      <div id="bookNamesContainer" class="form-row">
+        <input type="text" class="bookNameInput" placeholder="Book Name 1" required />
+      </div>
+
+      <div id="dateFields" class="form-row hidden">
+        <div id="startDateContainer" class="date-container hidden">
+          <label for="startedDate">Starting Date</label>
+          <input type="date" id="startedDate" />
+        </div>
+        <div id="completedDateContainer" class="date-container hidden">
+          <label for="completedDate">Completed Date</label>
+          <input type="date" id="completedDate" />
+        </div>
+      </div>
+      <button type="submit">📚 Add Book(s)</button>
+    </form>
+
+    <div id="table-and-report-wrapper" class="container">
+      <div id="search-controls">
+        <button id="save-btn" disabled>💾 Save Changes</button>
+        <span id="save-status" style="margin-left: 10px; font-weight: bold;"></span>
+
+        <input type="text" id="search-series" placeholder="Series Name" />
+        <input type="text" id="search-book" placeholder="Book Name" />
+        <input type="text" id="search-author" placeholder="Author" />
+        <select id="search-status">
+          <option value="">All Statuses</option>
+          <option>Reading</option>
+          <option>Completed</option>
+          <option>Paused</option>
+          <option>Yet to Start</option>
+          <option>Waiting</option>
+          <option>Not Interested</option>
+        </select>
+        <button id="search-btn">🔍 Search</button>
+        <button id="reset-btn">♻️ Reset</button>
+        <button id="generate-report-btn" type="button" class="report-btn">📊 Reading Stats Report</button>
+      </div>
+
+      <div id="books-table"></div>
+
+      <div id="reading-stats-container" class="container hidden">
+        <button id="back-to-table-btn" type="button" class="back-btn">← Back to Books Table</button>
+        <div id="reading-summary"></div>
+        <div id="reading-stats-table"></div>
+        <!-- Add below reading-stats-table -->
+        <div id="reading-duration-table"></div>
+
+        <div class="chart-container">
+          <div class="chart-box">
+            <canvas id="statusBarChart"></canvas>
+          </div>
+          <div class="chart-box">
+            <canvas id="monthlyLineChart" width="600" height="300"></canvas>
+          </div>
+          <div class="chart-box">
+            <canvas id="readingDurationChart" width="600" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Loading overlay goes here -->
+  <div id="loading-overlay" class="hidden">
+    <div>Loading report, please wait...</div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+  <div id="toastContainer" class="toast-container"></div>
+
+</body>
+</html>
