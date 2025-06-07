@@ -1,4 +1,6 @@
 let table;
+const auditLogs = [];
+
 document.addEventListener('DOMContentLoaded', () => {
     table = new Tabulator("#books-table", {
         layout: "fitColumns",
@@ -84,107 +86,17 @@ document.addEventListener('DOMContentLoaded', () => {
             { title: "Stopped Date", field: "stoppedDate", editor: dateEditor, formatter: formatFirestoreTimestamp, editable: isEditable },
             { title: "Entry Date", field: "entryDate", formatter: formatFirestoreTimestamp },
         ],
+        rowContextMenu: [
+            {
+                label: "🔍 View Audit Trail",
+                action: function (e, row) {
+                    const rowData = row.getData();
+                    showAuditModal(rowData.id);
+                }
+            }
+        ],
         height: "500px",
-        placeholder: "No books to display.",
-
-        cellEdited: async (cell) => {
-            const data = cell.getRow().getData();
-            const docId = data.id;
-            const field = cell.getField();
-            const oldValue = cell.getOldValue();
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayStr = today.toISOString().split("T")[0];
-
-            if (field === "status") {
-                const prevStatus = oldValue;
-                const newStatus = data.status;
-
-                if (newStatus === "Reading") {
-                    if (!data.startedDate) data.startedDate = todayStr;
-                    if (prevStatus === "Paused") {
-                        data.resumedDate = todayStr;
-                    }
-                }
-
-                if (newStatus === "Completed") {
-                    if (!data.startedDate) data.startedDate = todayStr;
-                    if (!data.completedDate) data.completedDate = todayStr;
-                    
-                    // 🔽 TEMPORARY FLAG TO ALLOW EDITING BEFORE SAVE
-                    cell.getRow().update({ _transitionalCompleted: true });
-
-                }
-
-                if (newStatus === "Paused") {
-                    if (!data.startedDate) data.startedDate = todayStr;
-                    if (!data.pausedDate) data.pausedDate = todayStr;
-                }
-
-                if (newStatus === "Not Interested") {
-                    data.stoppedDate = todayStr;
-                }
-                cell.getRow().update(data);
-                
-                // ⬇️ ADD THIS to re-render checkbox cell
-                const checkboxCell = cell.getRow().getCell("");
-                if (checkboxCell) {
-                    checkboxCell.getElement().innerHTML = checkboxCell.getColumn().getDefinition().formatter(checkboxCell);
-                }
-
-            }
-
-            const started = data.startedDate ? new Date(data.startedDate) : null;
-            const completed = data.completedDate ? new Date(data.completedDate) : null;
-            const paused = data.pausedDate ? new Date(data.pausedDate) : null;
-            const resumed = data.resumedDate ? new Date(data.resumedDate) : null;
-
-            let validationError = false;
-
-            if (completed && started && completed < started) {
-                alert("Completed date cannot be before Started date.");
-                data.completedDate = "";
-                validationError = true;
-            }
-            if (paused && started && paused < started) {
-                alert("Paused date cannot be before Started date.");
-                data.pausedDate = "";
-                validationError = true;
-            }
-            if (resumed && paused && resumed < paused) {
-                alert("Resumed date cannot be before Paused date.");
-                data.resumedDate = "";
-                validationError = true;
-            }
-
-            // Re-apply corrected data to table
-            if (validationError) {
-                cell.getRow().update(data);
-                return;
-            }
-
-            const jsonOriginal = originalDataMap.get(docId);
-            const normalized = normalize(data);
-            const jsonUpdated = JSON.stringify(normalized);
-
-            if (jsonOriginal !== jsonUpdated) {
-                changedRowsMap.set(docId, { ...data });
-                document.getElementById("save-btn").disabled = false;
-            } else {
-                changedRowsMap.delete(docId);
-                if (changedRowsMap.size === 0) {
-                    document.getElementById("save-btn").disabled = true;
-                }
-            }
-            
-            try {
-                const { id, ...bookData } = data;
-                await db.collection("books").doc(docId).set(bookData);
-            } catch (err) {
-                alert("Error updating document: " + err.message);
-            }
-        }
+        placeholder: "No books to display."
     });
 
     function normalize(obj) {
@@ -325,20 +237,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Enable save button on edit and check the row's checkbox
     table.on("cellEdited", function (cell) {
+        console.log("table on cellEdited");
         const row = cell.getRow();
         const rowData = row.getData();
         const field = cell.getField();
+        const oldValue = cell.getOldValue();
+        const newValue = cell.getValue();
 
         // Automatically check the row
         row.update({ selected: true });
 
         if (rowData.id) {
             changedRows.add(rowData.id);
+
+            // 👤 Get user info
+            const auth = firebase.auth();
+            const user = auth.currentUser;
+            const userId = user?.uid || "Unknown";
+            const userEmail = user?.email || "Unknown";
+
+            // Only track if value actually changed
+            if (oldValue !== newValue) {
+                auditLogs.push({
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    docId: rowData.id,
+                    field,
+                    oldValue,
+                    newValue,
+                    userId,
+                    userEmail,
+                });
+            }
         }
 
         // === Highlight Required Dates Based on Status ===
         if (field === "status") {
-            highlightRequiredDateCells(row);
+            highlightRequiredDateCells(row, oldValue);
             
             // Allow editing until Save
             row.getElement().classList.remove("row-disabled");
@@ -346,7 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.getElement().classList.remove("non-editable");
             });
         }
-
 
         // === Validate Date Relationships ===
         validateDateDependencies(row);
@@ -382,10 +315,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return !validationError;
     }
 
-    function highlightRequiredDateCells(row) {
+    function highlightRequiredDateCells(row, prevStatus = null) {
+        console.log("highlightRequiredDateCells");
         const rowData = row.getData();
         const el = row.getElement();
         const status = rowData.status;
+        console.log("status", status);
 
         const dateFields = {
             Completed: ["startedDate", "completedDate"],
@@ -403,13 +338,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const today = new Date();
         const updateData = {};
 
+        // Rule: If status moved back from Paused → Reading → set resumedDate = today
+        if ((prevStatus === "Paused" || prevStatus === "Not Interested") && status === "Reading") {
+            const oldVal = rowData.resumedDate || "";
+            const newVal = today.toISOString();
+            updateData.resumedDate = newVal;
+            logAuditChange(rowData.id, "resumedDate", oldVal, newVal);
+        }
+
+        // Rule: If status is changed to "Yet to Start" → clear all date fields
+        if (status === "Yet to Start") {
+            const fieldsToClear = ["startedDate", "completedDate", "pausedDate", "resumedDate", "stoppedDate"];
+            fieldsToClear.forEach(field => {
+                const oldVal = rowData[field] || "";
+                updateData[field] = "";
+                logAuditChange(rowData.id, field, oldVal, "");
+            });
+        }
+
         if (dateFields[status]) {
             dateFields[status].forEach((field) => {
                 const fieldValue = rowData[field];
-                // Check for blank or invalid date
+                console.log("fieldValue", fieldValue);
                 if (!fieldValue) {
-                    updateData[field] = today.toISOString();
-                    // Add visual highlight
+                    const newVal = today.toISOString();
+                    updateData[field] = newVal;
+                    logAuditChange(rowData.id, field, fieldValue || "", newVal);
+
                     const cell = row.getCell(field);
                     if (cell) {
                         const td = cell.getElement();
@@ -422,10 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (status === "Completed") {
                 updateData._transitionalCompleted = true;
             }
+        }
 
-            if (Object.keys(updateData).length > 0) {
-                row.update(updateData); // triggers redraw and updates internal state
-            }
+        if (Object.keys(updateData).length > 0) {
+            row.update(updateData); // triggers redraw and updates internal state
         }
     }
 
@@ -503,6 +458,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             await batch.commit();
+
+            // === SAVE AUDIT LOGS ===
+            const auditRef = firebase.firestore().collection("audit");
+            const auditBatch = firebase.firestore().batch();
+
+            auditLogs.forEach((log) => {
+                const docRef = auditRef.doc(); // auto-generated ID
+                auditBatch.set(docRef, log);
+            });
+
+            await auditBatch.commit();
+            auditLogs.length = 0; // Clear logs after saving
+
 
             Object.entries(updates).forEach(([id, rowData]) => {
                 const row = table.getRow(id);
@@ -869,9 +837,148 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    async function showAuditModal(docId) {
+        const modal = document.getElementById("auditModal");
+        const timeline = document.getElementById("auditTimeline");
+        const currentUser = firebase.auth().currentUser;
+
+        if (!currentUser) {
+            alert("Please log in to view audit logs.");
+            return;
+        }
+
+        timeline.innerHTML = "<p>Loading...</p>";
+        modal.style.display = "block";
+
+        try {
+            const snapshot = await firebase.firestore()
+            .collection("audit")
+            .where("docId", "==", docId)
+            .where("userId", "==", currentUser.uid)
+            .orderBy("timestamp", "asc")
+            .get();
+
+            timeline.innerHTML = "";
+
+            if (snapshot.empty) {
+                document.getElementById("auditModal").style.display = "none";
+                showToast("No audit logs available for this entry.")
+                return;
+            }
+
+            snapshot.forEach((doc, index) => {
+                const data = doc.data();
+                const timestamp = data.timestamp?.toDate().toLocaleString() || "Unknown time";
+                const field = data.field || "Unknown field";
+
+                const oldVal = formatDateValue(data.oldValue || "NA");
+                const newVal = formatDateValue(data.newValue || "NA");
+    
+                // Card container
+                const card = document.createElement("div");
+                card.classList.add("timeline-card");
+
+                card.innerHTML = `
+                    <div class="timeline-icon">✏️</div>
+                    <div class="timeline-content">
+                        <div class="field-title">${field}</div>
+                        <div class="change-line"><span class="old-val">${oldVal}</span> ➝ <span class="new-val">${newVal}</span></div>
+                        <div class="meta">
+                            <span class="meta-item">🕒 ${timestamp}</span>
+                        </div>
+                    </div>
+                `;
+
+                timeline.appendChild(card);
+
+                // Add connecting arrow between cards (not after last)
+                if (index < snapshot.docs.length - 1) {
+                    const connector = document.createElement("div");
+                    connector.classList.add("timeline-connector");
+                    connector.innerHTML = `<div class="line"></div><div class="arrow">↓</div>`;
+                    timeline.appendChild(connector);
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching audit logs:", error);
+            timeline.innerHTML = "<p>Error loading audit logs.</p>";
+        }
+    }
+
+    // Modal close functionality
+    document.querySelector("#auditModal .close").onclick = function() {
+        document.getElementById("auditModal").style.display = "none";
+    };
+
+    window.onclick = function(event) {
+        const modal = document.getElementById("auditModal");
+        if (event.target === modal) {
+            modal.style.display = "none";
+        }
+    };
+
 });
 
+function logAuditChange(docId, field, oldValue, newValue) {
+    const user = firebase.auth().currentUser;
+    const userId = user?.uid || "Unknown";
+    const userEmail = user?.email || "Unknown";
+
+    if (oldValue !== newValue) {
+        auditLogs.push({
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            docId,
+            field,
+            oldValue,
+            newValue,
+            userId,
+            userEmail,
+        });
+    }
+}
+
+function formatDateValue(value) {
+    if (typeof value === 'string' || typeof value === 'number') {
+        const date = new Date(value);
+        if (!isNaN(date)) {
+            return formatDateTime(value);
+        }
+    }
+    return value;
+}
+
 function formatFirestoreTimestamp(cell) {
+    return formatDateTime(cell.getValue());
+}
+
+function formatDateTime(value) {
+    if (!value) return '';
+
+    let date;
+    if (value.toDate) {
+        date = value.toDate();
+    } else if (typeof value === 'string' || typeof value === 'number') {
+        date = new Date(value);
+    } else {
+        return '';
+    }
+
+    if (isNaN(date)) return '';
+
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+    });
+}
+
+
+/*function formatFirestoreTimestamp(cell) {
     const value = cell.getValue();
     if (!value) return '';
 
@@ -896,7 +1003,7 @@ function formatFirestoreTimestamp(cell) {
         minute: '2-digit',
         hour12: true,
     });
-}
+}*/
 
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');

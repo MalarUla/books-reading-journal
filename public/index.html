@@ -13,7 +13,8 @@
   <!-- Styles -->
   <link rel="stylesheet" href="styles.css"/>
   <link rel="stylesheet" href="login.css"/>
-  <link rel="stylesheet" href="report.css"/> <!-- Report Styles -->
+  <link rel="stylesheet" href="report.css"/>
+  <link rel="stylesheet" href="audit.css"/>
 
   <!-- Tabulator for later use -->
   <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
@@ -44,18 +45,21 @@
     }
   </script>
 
+  <script src="js/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="login.js"></script>
   <script defer src="report.js"></script> <!-- Report Logic -->
+  
+
 </head>
 <body>
   <div id="login-container" class="container">
     <h1>Books Reading Journal</h1>
-    <button id="google-login" class="google-btn">Sign in with Google</button>
+    <button id="google-login" class="google-btn"></button>
   </div>
 
   <div id="landing-page" class="container hidden">
-    <button id="logout-btn" class="logout-btn top-right">⏻ Logout</button>
+    <button id="logout-btn" class="logout-btn top-right"></button>
     <h1>Welcome to Books Reading Journal</h1>
 
       <!-- New Book Entry Form -->
@@ -63,23 +67,17 @@
       <h2>Add New Book(s)</h2>
 
       <div class="form-row">
-        <input type="text" id="seriesName" placeholder="Series Name" required />
-        <input type="text" id="author" placeholder="Author" required />
-        <input type="text" id="genre" placeholder="Genre" />
-        <input type="text" id="subGenre" placeholder="Sub-Genre" />
+        <input type="text" id="seriesName" required />
+        <input type="text" id="author" required />
+        <input type="text" id="genre" />
+        <input type="text" id="subGenre" />
         <select id="status" required>
           <option value="">Select Status</option>
-          <option>Reading</option>
-          <option>Completed</option>
-          <option selected>Yet to Start</option>
-          <option>Paused</option>
-          <option>Waiting</option>
-          <option>Not Interested</option>
         </select>
       </div>
 
       <div class="form-row">
-        <label>Number of Books:
+        <label id="book-count-label">
           <button type="button" id="decreaseCount">-</button>
           <input type="number" id="bookCount" value="1" min="1" readonly style="width: 10px; text-align: center; padding: 2px;">
           <button type="button" id="increaseCount">+</button>
@@ -87,48 +85,43 @@
       </div>
 
       <div id="bookNamesContainer" class="form-row">
-        <input type="text" class="bookNameInput" placeholder="Book Name 1" required />
+        <input type="text" class="bookNameInput" required />
       </div>
 
       <div id="dateFields" class="form-row hidden">
         <div id="startDateContainer" class="date-container hidden">
-          <label for="startedDate">Starting Date</label>
+          <label for="startedDate" id="startedDateLabel"></label>
           <input type="date" id="startedDate" />
         </div>
         <div id="completedDateContainer" class="date-container hidden">
-          <label for="completedDate">Completed Date</label>
+          <label for="completedDate" id="completedDateLabel"></label>
           <input type="date" id="completedDate" />
         </div>
       </div>
-      <button type="submit">📚 Add Book(s)</button>
+
+      <button type="submit" id="add-books-btn"></button>
     </form>
 
     <div id="table-and-report-wrapper" class="container">
       <div id="search-controls">
-        <button id="save-btn" disabled>💾 Save Changes</button>
+        <button id="save-btn" disabled></button>
         <span id="save-status" style="margin-left: 10px; font-weight: bold;"></span>
 
-        <input type="text" id="search-series" placeholder="Series Name" />
-        <input type="text" id="search-book" placeholder="Book Name" />
-        <input type="text" id="search-author" placeholder="Author" />
+        <input type="text" id="search-series" />
+        <input type="text" id="search-book" />
+        <input type="text" id="search-author" />
         <select id="search-status">
           <option value="">All Statuses</option>
-          <option>Reading</option>
-          <option>Completed</option>
-          <option>Paused</option>
-          <option>Yet to Start</option>
-          <option>Waiting</option>
-          <option>Not Interested</option>
         </select>
-        <button id="search-btn">🔍 Search</button>
-        <button id="reset-btn">♻️ Reset</button>
-        <button id="generate-report-btn" type="button" class="report-btn">📊 Reading Stats Report</button>
+        <button id="search-btn"></button>
+        <button id="reset-btn"></button>
+        <button id="generate-report-btn" type="button" class="report-btn"></button>
       </div>
 
       <div id="books-table"></div>
 
       <div id="reading-stats-container" class="container hidden">
-        <button id="back-to-table-btn" type="button" class="back-btn">← Back to Books Table</button>
+        <button id="back-to-table-btn" type="button" class="back-btn"></button>
         <div id="reading-summary"></div>
         <div id="reading-stats-table"></div>
         <!-- Add below reading-stats-table -->
@@ -146,17 +139,78 @@
           </div>
         </div>
       </div>
-
     </div>
+
+    <div id="auditModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Audit Trail</h3>
+        <div id="auditTimeline" class="timeline"></div>
+      </div>
+    </div>
+
+
   </div>
 
   <!-- Loading overlay goes here -->
   <div id="loading-overlay" class="hidden">
-    <div>Loading report, please wait...</div>
+    <div id="loading-text"></div>
   </div>
 
   <script src="app.js" type="module"></script>
   <div id="toastContainer" class="toast-container"></div>
+
+  <script>
+    // Apply dynamic content from config
+    const {
+      buttons,
+      placeholders,
+      labels,
+      statuses,
+      messages
+    } = AppStrings;
+
+    document.getElementById('google-login').textContent = buttons.googleSignIn || "Sign in with Google";
+    document.getElementById('logout-btn').textContent = buttons.logout;
+    document.getElementById('add-books-btn').textContent = buttons.addBooks;
+    document.getElementById('save-btn').textContent = buttons.saveChanges;
+    document.getElementById('search-btn').textContent = buttons.search;
+    document.getElementById('reset-btn').textContent = buttons.reset;
+    document.getElementById('generate-report-btn').textContent = buttons.generateReport;
+    document.getElementById('back-to-table-btn').textContent = buttons.backToTable;
+
+    document.getElementById('seriesName').placeholder = placeholders.seriesName;
+    document.getElementById('author').placeholder = placeholders.author;
+    document.getElementById('genre').placeholder = placeholders.genre;
+    document.getElementById('subGenre').placeholder = placeholders.subGenre;
+    document.getElementById('search-series').placeholder = placeholders.searchSeries;
+    document.getElementById('search-book').placeholder = placeholders.searchBook;
+    document.getElementById('search-author').placeholder = placeholders.searchAuthor;
+    document.getElementById('bookNamesContainer').querySelector('input').placeholder = placeholders.bookName(1);
+
+    document.getElementById('book-count-label').childNodes[0].textContent = labels.numberOfBooks;
+    document.getElementById('startedDateLabel').textContent = labels.startingDate;
+    document.getElementById('completedDateLabel').textContent = labels.completedDate;
+    document.getElementById('loading-text').textContent = messages.loading;
+
+    // Populate statuses
+    const statusDropdown = document.getElementById('status');
+    statuses.forEach(s => {
+      const option = document.createElement("option");
+      option.text = s;
+      option.value = s;
+      if (s === "Yet to Start") option.selected = true;
+      statusDropdown.appendChild(option);
+    });
+
+    const searchStatusDropdown = document.getElementById('search-status');
+    statuses.forEach(s => {
+      const option = document.createElement("option");
+      option.text = s;
+      option.value = s;
+      searchStatusDropdown.appendChild(option);
+    });
+  </script>
 
 </body>
 </html>
