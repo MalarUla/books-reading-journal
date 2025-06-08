@@ -99,6 +99,63 @@ document.addEventListener('DOMContentLoaded', () => {
         placeholder: "No books to display."
     });
 
+    const genreSelect = document.getElementById('genre');
+    const subGenreSelect = document.getElementById('subGenre');
+
+    // Fetch genres on page load
+    async function loadGenres() {
+        try {
+            const snapshot = await db.collection("classification").get();
+
+            console.log("snapshot", snapshot)
+
+
+            // Clear existing options except the first (e.g., placeholder)
+            genreSelect.innerHTML = '<option value="">Select Genre</option>';
+
+            snapshot.forEach(doc => {
+                const genreName = doc.id;
+                console.log("genrename", genreName)
+                const option = document.createElement('option');
+                option.value = genreName;
+                option.textContent = genreName;
+                genreSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Error fetching genres:", error);
+        }
+    }
+
+
+    // Update sub-genres when a genre is selected
+    genreSelect.addEventListener('change', () => {
+        const selectedGenre = genreSelect.value;
+
+        // Clear previous sub-genres
+        subGenreSelect.innerHTML = '<option value="">Select Sub-Genre</option>';
+
+        if (selectedGenre) {
+            db.collection('classification').doc(selectedGenre).get().then(doc => {
+                if (doc.exists) {
+                    const subGenres = doc.data().subgenres || [];
+                    subGenres.forEach(sub => {
+                        const option = document.createElement('option');
+                        option.value = sub;
+                        option.textContent = sub;
+                        subGenreSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching sub-genres: ", error);
+            });
+        }
+    });
+
+    // Call this on page load
+    loadGenres();
+
+
     function normalize(obj) {
         const clone = structuredClone(obj);
         for (const key in clone) {
@@ -721,6 +778,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const completedTS = toTimestamp("completedDate");
         const entryDate = firebase.firestore.Timestamp.now();
         const modifiedDate = firebase.firestore.Timestamp.now();
+
+        console.log("genre", genre);
+        console.log("sub genre", subGenre);
 
         // Get all book names
         const bookNameInputs = document.querySelectorAll(".bookNameInput");
