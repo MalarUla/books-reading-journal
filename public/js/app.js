@@ -762,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ✅ Check against existing entries in Firestore
         const currentUser = firebase.auth().currentUser;
         const allBooksSnapshot = await db.collection("books").where("userId", "==", currentUser.uid).get();
+
         const existingBooks = allBooksSnapshot.docs.map(doc => doc.data());
 
         const toKey = (series, book, author) => `${series?.toLowerCase()}|${book?.toLowerCase()}|${author?.toLowerCase()}`;
@@ -857,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .where("docId", "==", docId)
             .where("userId", "==", currentUser.uid)
             .orderBy("timestamp", "asc")
-            .get();
+            .get();            
 
             timeline.innerHTML = "";
 
@@ -976,34 +977,6 @@ function formatDateTime(value) {
         hour12: true,
     });
 }
-
-
-/*function formatFirestoreTimestamp(cell) {
-    const value = cell.getValue();
-    if (!value) return '';
-
-    let date;
-    // Handle Firestore timestamp object
-    if (value.toDate) {
-        date = value.toDate();
-    } else if (typeof value === 'string' || typeof value === 'number') {
-        date = new Date(value);
-    } else {
-        return '';
-    }
-
-    if (isNaN(date)) return '';
-
-    // Format to MM/DD/YYYY, HH:MM AM/PM
-    return date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-    });
-}*/
 
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');

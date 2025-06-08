@@ -10,11 +10,17 @@
   <!-- Tabulator JS -->
   <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 
+  <!-- html2pdf -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css"/>
   <link rel="stylesheet" href="css/login.css"/>
   <link rel="stylesheet" href="css/report.css"/>
   <link rel="stylesheet" href="css/audit.css"/>
+  <link rel="stylesheet" href="css/download.css"/>
+
 
   <!-- Tabulator for later use -->
   <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
@@ -48,7 +54,8 @@
   <script src="js/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="js/login.js"></script>
-  <script defer src="js/report.js"></script> <!-- Report Logic -->
+  <script defer src="js/report.js"></script>
+  <script type="module" src="js/download.js"></script>
   
 
 </head>
@@ -116,6 +123,18 @@
         <button id="search-btn"></button>
         <button id="reset-btn"></button>
         <button id="generate-report-btn" type="button" class="report-btn"></button>
+
+          <!-- Download icon with inline menu (inside the same parent) -->
+        <span class="download-menu-inline">
+          <button id="download-icon" class="download-btn" title="Download">&#x1F4E5;</button>
+          <div id="download-options" class="download-options hidden">
+            <button id="download-xlsx">Download XLSX</button>
+            <button id="download-csv">Download CSV (Books)</button>
+            <button id="download-audit-csv">Download CSV (Audit)</button>
+            <button id="download-pdf">Download PDF</button>
+            <button id="refresh-google-sheet">Refresh Google Sheet</button>
+          </div>
+        </span>
       </div>
 
       <div id="books-table"></div>
