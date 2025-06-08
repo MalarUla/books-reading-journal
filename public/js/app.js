@@ -1,7 +1,28 @@
 let table;
 const auditLogs = [];
 
-document.addEventListener('DOMContentLoaded', () => {
+let genreList = [];
+let subGenreMap = {}; // { genre: [subGenre1, subGenre2] }
+
+async function loadGenresAndSubGenres() {
+    try {
+        const snapshot = await db.collection("classification").get();
+        genreList = [];
+        subGenreMap = {};
+
+        snapshot.forEach(doc => {
+            const genre = doc.id;
+            genreList.push(genre);
+            const data = doc.data();
+            subGenreMap[genre] = Array.isArray(data.subgenres) ? data.subgenres : [];
+        });
+    } catch (error) {
+        console.error("Error loading genres:", error);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadGenresAndSubGenres();
     table = new Tabulator("#books-table", {
         layout: "fitColumns",
         movableColumns: true,
@@ -66,8 +87,23 @@ document.addEventListener('DOMContentLoaded', () => {
             { title: "Series Name", field: "seriesName", editor: "input", editable: isEditable },
             { title: "Book Name", field: "bookName", editor: "input", editable: isEditable },
             { title: "Author", field: "author", editor: "input", editable: isEditable },
-            { title: "Genre", field: "genre", editor: "input", editable: isEditable },
-            { title: "Sub-Genre", field: "subGenre", editor: "input", editable: isEditable },
+            {
+              title: "Genre",
+              field: "genre",
+              editor: "select",
+              editorParams: { values: genreList },
+              editable: isEditable
+            },
+            {
+              title: "Sub-Genre",
+              field: "subGenre",
+              editor: "select",
+              editorParams: function (cell) {
+                const rowData = cell.getRow().getData();
+                return { values: subGenreMap[rowData.genre] || [] };
+              },
+              editable: isEditable
+            },
             {
                 title: "Reading Status",
                 field: "status",
