@@ -153,30 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return input;
     }
 
-
-    function dateInput(cell, onRendered, success, cancel) {
-        const cellValue = cell.getValue();
-        const input = document.createElement("input");
-        input.setAttribute("type", "date");
-        input.style.padding = "3px";
-        input.style.width = "100%";
-        input.value = cellValue || "";
-
-        onRendered(() => {
-            input.focus();
-            input.style.height = "100%";
-        });
-
-        input.addEventListener("change", () => success(input.value));
-        input.addEventListener("blur", () => success(input.value));
-        input.addEventListener("keydown", (e) => {
-            if (e.keyCode === 13) success(input.value);
-            if (e.keyCode === 27) cancel();
-        });
-
-        return input;
-    }
-
     const saveBtn = document.getElementById("save-btn");
     const saveStatus = document.getElementById("save-status");
     let changedRows = new Set();
@@ -233,7 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
     });
-
 
     // Enable save button on edit and check the row's checkbox
     table.on("cellEdited", function (cell) {
@@ -441,7 +416,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const updates = {};
         changedRows.forEach((id) => {
             const rowData = table.getRow(id).getData();
-            updates[id] = { ...rowData };
+            updates[id] = { 
+                ...rowData,
+                modifiedDate: firebase.firestore.Timestamp.now()
+            };
             delete updates[id].selected; // Optionally exclude 'selected' from DB
         });
 
@@ -635,7 +613,24 @@ document.addEventListener('DOMContentLoaded', () => {
     //Fetch book details from series name
     document.getElementById('seriesName').addEventListener('blur', async () => {
         const seriesName = document.getElementById('seriesName').value.trim();
-        if (!seriesName) return;
+        
+        // If seriesName is empty, clear all populated fields & return early
+        if (!seriesName) {
+            document.getElementById('author').value = '';
+            document.getElementById('genre').value = '';
+            document.getElementById('subGenre').value = '';
+            document.getElementById('bookCount').value = '1';
+            const container = document.getElementById('bookNamesContainer');
+            container.innerHTML = '';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'bookNameInput';
+            input.placeholder = 'Book Name 1';
+            input.required = true;
+            container.appendChild(input);
+            return; // stop further execution
+        }
 
         try {
             const response = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(seriesName)}`);
@@ -725,6 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const startedTS = toTimestamp("startedDate");
         const completedTS = toTimestamp("completedDate");
         const entryDate = firebase.firestore.Timestamp.now();
+        const modifiedDate = firebase.firestore.Timestamp.now();
 
         // Get all book names
         const bookNameInputs = document.querySelectorAll(".bookNameInput");
@@ -796,6 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 resumedDate: null,
                 stoppedDate: null,
                 entryDate,
+                modifiedDate,
                 userId: currentUser?.uid || null,
                 userEmail: currentUser?.email || null,
             };

@@ -13,6 +13,8 @@
   <!-- html2pdf -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/styles.css"/>
@@ -128,11 +130,10 @@
         <span class="download-menu-inline">
           <button id="download-icon" class="download-btn" title="Download">&#x1F4E5;</button>
           <div id="download-options" class="download-options hidden">
-            <button id="download-xlsx">Download XLSX</button>
-            <button id="download-csv">Download CSV (Books)</button>
-            <button id="download-audit-csv">Download CSV (Audit)</button>
-            <button id="download-pdf">Download PDF</button>
-            <button id="refresh-google-sheet">Refresh Google Sheet</button>
+            <button id="download-xlsx"><i class="fas fa-file-excel"></i> Download XLSX</button>
+            <button id="download-csv"><i class="fas fa-file-csv"></i>Download CSV (Books)</button>
+            <button id="download-audit-csv"><i class="fas fa-file-alt"></i>Download CSV (Audit)</button>
+            <button id="download-pdf"><i class="fas fa-file-pdf"></i>Download PDF</button>
           </div>
         </span>
       </div>
@@ -177,6 +178,9 @@
   </div>
 
   <script src="js/app.js" type="module"></script>
+  <!-- Google API libraries -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <div id="toastContainer" class="toast-container"></div>
 
   <script>

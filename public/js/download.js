@@ -1,14 +1,8 @@
 // download.js
 import { writeFile, utils } from "https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs";
 
-// Utility to format date
-function getFormattedDate() {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-}
+const { firestore, download, alerts } = window.AppStrings;
+const { getFormattedDate } = window.AppUtils;
 
 // Fetch books for current user
 async function fetchBooksData() {
@@ -16,7 +10,7 @@ async function fetchBooksData() {
     if (!currentUser) throw new Error("User not logged in");
 
     const snapshot = await firebase.firestore()
-        .collection("books")
+        .collection(firestore.booksCollection)
         .where("userId", "==", currentUser.uid)
         .get();
 
@@ -29,7 +23,7 @@ async function fetchAuditData() {
     if (!currentUser) throw new Error("User not logged in");
 
     const snapshot = await firebase.firestore()
-        .collection("audit")
+        .collection(firestore.audit)
         .where("userId", "==", currentUser.uid)
         .get();
 
@@ -85,18 +79,18 @@ async function downloadXLSX() {
 
         if (books.length > 0) {
             const booksSheet = utils.json_to_sheet(books);
-            utils.book_append_sheet(wb, booksSheet, "Books Table");
+            utils.book_append_sheet(wb, booksSheet, download.sheetNames.books);
         }
 
         if (report.length > 0) {
             const reportSheet = utils.aoa_to_sheet(report);
-            utils.book_append_sheet(wb, reportSheet, "Report Summary");
+            utils.book_append_sheet(wb, reportSheet, download.sheetNames.report);
         }
 
-        writeFile(wb, `Books_${getFormattedDate()}.xlsx`);
+        writeFile(wb, download.filenames.xlsx());
     } catch (err) {
         console.error("Failed to download XLSX:", err);
-        alert("Failed to download XLSX: " + err.message);
+        alert(alerts.xlsxFail + ": " + err.message);
     }
 }
 
@@ -109,11 +103,11 @@ async function downloadCSVBooks() {
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `Books_${getFormattedDate()}.csv`;
+        a.download = download.filenames.booksCSV();
         a.click();
     } catch (err) {
         console.error("Failed to download Books CSV:", err);
-        alert("Failed to download Books CSV: " + err.message);
+        alert(alerts.csvBooksFail + ": " + err.message);
     }
 }
 
@@ -126,11 +120,11 @@ async function downloadAuditCSV() {
 
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `Audit_${getFormattedDate()}.csv`;
+        a.download = download.filenames.auditCSV();
         a.click();
     } catch (err) {
         console.error("Failed to download Audit CSV:", err);
-        alert("Failed to download Audit CSV: " + err.message);
+        alert(alerts.csvAuditFail + ": " + err.message);
     }
 }
 
@@ -143,7 +137,7 @@ function downloadPDF() {
 
     const opt = {
         margin:       0.5,
-        filename:     `Report_${getFormattedDate()}.pdf`,
+        filename:     download.filenames.pdf(),
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -154,16 +148,6 @@ function downloadPDF() {
     });
 }
 
-
-function refreshGoogleSheetData() {
-    fetch('/refresh-google-sheet', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => alert('Google Sheet refreshed'))
-        .catch(err => {
-            console.error('Error refreshing Google Sheet:', err);
-            alert('Error refreshing sheet: ' + err.message);
-        });
-}
 
 // Attach all download menu events after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -188,5 +172,4 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('download-csv')?.addEventListener('click', downloadCSVBooks);
     document.getElementById('download-audit-csv')?.addEventListener('click', downloadAuditCSV);
     document.getElementById('download-pdf')?.addEventListener('click', downloadPDF);
-    document.getElementById('refresh-google-sheet')?.addEventListener('click', refreshGoogleSheetData);
 });
