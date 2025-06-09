@@ -1,28 +1,10 @@
 let table;
 const auditLogs = [];
 
-let genreList = [];
-let subGenreMap = {}; // { genre: [subGenre1, subGenre2] }
-
-async function loadGenresAndSubGenres() {
-    try {
-        const snapshot = await db.collection("classification").get();
-        genreList = [];
-        subGenreMap = {};
-
-        snapshot.forEach(doc => {
-            const genre = doc.id;
-            genreList.push(genre);
-            const data = doc.data();
-            subGenreMap[genre] = Array.isArray(data.subgenres) ? data.subgenres : [];
-        });
-    } catch (error) {
-        console.error("Error loading genres:", error);
-    }
-}
+let genreList = [];    
+let subGenreMap = {};
 
 document.addEventListener("DOMContentLoaded", async () => {
-    await loadGenresAndSubGenres();
     table = new Tabulator("#books-table", {
         layout: "fitColumns",
         movableColumns: true,
@@ -90,17 +72,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             {
               title: "Genre",
               field: "genre",
-              editor: "select",
-              editorParams: { values: genreList },
+              editor: "list",
+              editorParams: { 
+                values: genreList,
+                autocomplete: true
+              },
               editable: isEditable
             },
             {
               title: "Sub-Genre",
               field: "subGenre",
-              editor: "select",
-              editorParams: function (cell) {
-                const rowData = cell.getRow().getData();
-                return { values: subGenreMap[rowData.genre] || [] };
+              editor: "list",
+              editorParams: function(cell) {
+                const genre = cell.getRow().getData().genre;
+                return {
+                    values: subGenreMap[genre] || [],
+                    autocomplete: true
+                };
               },
               editable: isEditable
             },
@@ -286,8 +274,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         table.setData(books);
     }
 
+
+    async function loadGenresAndSubGenres() {
+        try {
+            const snapshot = await db.collection("classification").get();
+            genreList = [];
+            subGenreMap = {};
+
+            snapshot.forEach(doc => {
+                const genre = doc.id;
+                genreList.push(genre);
+                const data = doc.data();
+                subGenreMap[genre] = Array.isArray(data.subgenres) ? data.subgenres : [];
+            });
+        } catch (error) {
+            console.error("Error loading genres:", error);
+        }
+    }
+
     firebase.auth().onAuthStateChanged(user => {
         if (user) {
+            loadGenresAndSubGenres();
             loadBooks(); // ✅ call here only after auth is ready
         } else {
             console.warn("User not logged in. Cannot load books.");
@@ -306,6 +313,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Enable save button on edit and check the row's checkbox
     table.on("cellEdited", function (cell) {
         console.log("table on cellEdited");
+        if (cell.getField() === "genre") {
+            // Clear subGenre when genre changes
+            cell.getRow().update({ subGenre: "" });
+        }
+
         const row = cell.getRow();
         const rowData = row.getData();
         const field = cell.getField();
