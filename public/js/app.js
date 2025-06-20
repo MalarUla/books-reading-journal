@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               editor: "list",
               editorParams: { 
                 values: genreList,
-                autocomplete: true
+                autocomplete: false
               },
               editable: isEditable
             },
@@ -87,7 +87,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const genre = cell.getRow().getData().genre;
                 return {
                     values: subGenreMap[genre] || [],
-                    autocomplete: true
+                    autocomplete: false
                 };
               },
               editable: isEditable
@@ -131,15 +131,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const snapshot = await db.collection("classification").get();
 
-            console.log("snapshot", snapshot)
-
-
             // Clear existing options except the first (e.g., placeholder)
             genreSelect.innerHTML = '<option value="">Select Genre</option>';
 
             snapshot.forEach(doc => {
                 const genreName = doc.id;
-                console.log("genrename", genreName)
                 const option = document.createElement('option');
                 option.value = genreName;
                 option.textContent = genreName;
@@ -277,16 +273,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function loadGenresAndSubGenres() {
         try {
-            const snapshot = await db.collection("classification").get();
-            genreList = [];
-            subGenreMap = {};
 
+            const snapshot = await db.collection("classification").get();
+            
             snapshot.forEach(doc => {
-                const genre = doc.id;
-                genreList.push(genre);
+                const genreName = doc.id;
+                genreList.push(genreName);
                 const data = doc.data();
-                subGenreMap[genre] = Array.isArray(data.subgenres) ? data.subgenres : [];
+                subGenreMap[genreName] = Array.isArray(data.subgenres) ? data.subgenres : [];
             });
+            
         } catch (error) {
             console.error("Error loading genres:", error);
         }
@@ -294,8 +290,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     firebase.auth().onAuthStateChanged(user => {
         if (user) {
-            loadGenresAndSubGenres();
             loadBooks(); // ✅ call here only after auth is ready
+            loadGenresAndSubGenres();
         } else {
             console.warn("User not logged in. Cannot load books.");
         }
@@ -312,7 +308,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Enable save button on edit and check the row's checkbox
     table.on("cellEdited", function (cell) {
-        console.log("table on cellEdited");
+        
         if (cell.getField() === "genre") {
             // Clear subGenre when genre changes
             cell.getRow().update({ subGenre: "" });
@@ -396,12 +392,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function highlightRequiredDateCells(row, prevStatus = null) {
-        console.log("highlightRequiredDateCells");
         const rowData = row.getData();
         const el = row.getElement();
         const status = rowData.status;
-        console.log("status", status);
-
+        
         const dateFields = {
             Completed: ["startedDate", "completedDate"],
             Reading: ["startedDate"],
